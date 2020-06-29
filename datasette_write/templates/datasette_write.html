@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}Write with SQL{% endblock %}
+
+{% block content %}
+<h1>Write to the database with SQL</h1>
+
+<form action="/-/write" method="post">
+    <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
+    <p><label>Database: <select name="database">{% for database in databases %}
+        <option>{{ database.name }}</option>
+    {% endfor %}</select></label></p>
+    <p><textarea name="sql" style="width: 60%; height: 10em; padding: 6px;">{{ sql }}</textarea></p>
+    <input type="submit" value="Submit query">
+</form>
+
+{% endblock %}
