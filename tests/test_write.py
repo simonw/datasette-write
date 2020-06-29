@@ -8,7 +8,7 @@ import httpx
 def ds(tmp_path_factory):
     db_directory = tmp_path_factory.mktemp("dbs")
     db_path = db_directory / "test.db"
-    sqlite3.connect(db_path).executescript(
+    sqlite3.connect(str(db_path)).executescript(
         """
         create table one (id integer primary key, count integer);
         insert into one (id, count) values (1, 10);
