@@ -59,6 +59,16 @@ async def test_select_database(ds, database):
             'message-info">Created table: newtable<',
         ),
         (
+            "test",
+            "drop table one",
+            'message-info">Dropped table: one<',
+        ),
+        (
+            "test",
+            "alter table one add column bigfile blob",
+            'message-info">Altered table: one<',
+        ),
+        (
             "test2",
             "create table newtable (id integer)",
             'message-info">Created table: newtable<',
@@ -96,23 +106,27 @@ async def test_execute_write(ds, database, sql, expected_message):
 
 
 @pytest.mark.parametrize(
-    "sql,expected_name,expected_type",
+    "sql,expected_name,expected_verb,expected_type",
     (
-        ("create table hello (...", "hello", "table"),
-        ("  create view hello2 as (...", "hello2", "view"),
-        ("select 1 + 1", None, None),
+        ("create table hello (...", "hello", "create", "table"),
+        ("  create view hello2 as (...", "hello2", "create", "view"),
+        ("select 1 + 1", None, None, None),
         # Various styles of quoting
-        ("create table 'hello' (", "hello", "table"),
-        ('  create   \n table "hello" (', "hello", "table"),
-        ("create table [hello] (", "hello", "table"),
-        ("create view 'hello' (", "hello", "view"),
-        ('  create   \n view "hello" (', "hello", "view"),
-        ("create view [hello] (", "hello", "view"),
+        ("create table 'hello' (", "hello", "create", "table"),
+        ('  create   \n table "hello" (', "hello", "create", "table"),
+        ("create table [hello] (", "hello", "create", "table"),
+        ("create view 'hello' (", "hello", "create", "view"),
+        ('  create   \n view "hello" (', "hello", "create", "view"),
+        ("create view [hello] (", "hello", "create", "view"),
+        # Alter table
+        ("alter table [hello] ", "hello", "alter", "table"),
+        # But no alter view
+        ("alter view [hello] ", None, None, None),
     ),
 )
-def test_parse_create_alter_drop_sql(sql, expected_name, expected_type):
-    name_and_type = parse_create_alter_drop_sql(sql)
+def test_parse_create_alter_drop_sql(sql, expected_name, expected_verb, expected_type):
+    name_verb_type = parse_create_alter_drop_sql(sql)
     if expected_name is None:
-        assert name_and_type is None
+        assert name_verb_type is None
     else:
-        assert name_and_type == (expected_name, expected_type)
+        assert name_verb_type == (expected_name, expected_verb, expected_type)

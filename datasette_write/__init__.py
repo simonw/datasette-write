@@ -49,11 +49,17 @@ async def write(request, datasette):
             result = await database.execute_write(sql, block=True)
             if result.rowcount == -1:
                 # Maybe it was a create table / create view?
-                name_and_type = parse_create_alter_drop_sql(sql)
-                if name_and_type:
-                    message = "Created {}: {}".format(
-                        name_and_type[1],
-                        name_and_type[0],
+                name_verb_type = parse_create_alter_drop_sql(sql)
+                if name_verb_type:
+                    name, verb, type = name_verb_type
+                    message = "{verb} {type}: {name}".format(
+                        name=name,
+                        type=type,
+                        verb={
+                            "create": "Created",
+                            "drop": "Dropped",
+                            "alter": "Altered",
+                        }[verb],
                     )
                 else:
                     message = "Query executed"
@@ -134,9 +140,11 @@ _name_patterns = (
 _res = []
 for type in ("table", "view"):
     for name_pattern in _name_patterns:
-        pattern = r"\s*create\s+{}\s+{}.*".format(type, name_pattern)
-        print(pattern)
-        _res.append((type, re.compile(pattern, re.I)))
+        for verb in ("create", "drop"):
+            pattern = r"\s*{}\s+{}\s+{}.*".format(verb, type, name_pattern)
+            _res.append((type, verb, re.compile(pattern, re.I)))
+        alter_table_pattern = r"\s*alter\s+table\s+{}.*".format(name_pattern)
+        _res.append(("table", "alter", re.compile(alter_table_pattern, re.I)))
 
 
 def parse_create_alter_drop_sql(sql):
@@ -145,8 +153,8 @@ def parse_create_alter_drop_sql(sql):
 
     Returns the view or table name, or None if none was identified
     """
-    for type, _re in _res:
+    for type, verb, _re in _res:
         match = _re.match(sql)
         if match is not None:
-            return match.group(1), type
+            return match.group(1), verb, type
     return None
