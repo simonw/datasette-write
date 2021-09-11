@@ -59,7 +59,9 @@ async def write(request, datasette):
             message,
             type=datasette.INFO if result else datasette.ERROR,
         )
-        return Response.redirect(datasette.urls.path("/-/write"))
+        return Response.redirect(
+            datasette.urls.path("/-/write?") + urlencode({"database": database.name})
+        )
     else:
         return Response.html("Bad method", status_code=405)
 

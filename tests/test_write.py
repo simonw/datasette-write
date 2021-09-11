@@ -50,15 +50,20 @@ async def test_select_database(ds, database):
 
 
 @pytest.mark.parametrize(
-    "sql,expected_message",
+    "database,sql,expected_message",
     [
-        ("create table newtable (id integer)", 'message-info">Query executed<'),
-        ("update one set count = 5", 'message-info">2 rows affected<'),
-        ("invalid sql", 'message-error">near &#34;invalid&#34;: syntax error<'),
+        ("test", "create table newtable (id integer)", 'message-info">Query executed<'),
+        (
+            "test2",
+            "create table newtable (id integer)",
+            'message-info">Query executed<',
+        ),
+        ("test", "update one set count = 5", 'message-info">2 rows affected<'),
+        ("test", "invalid sql", 'message-error">near &#34;invalid&#34;: syntax error<'),
     ],
 )
 @pytest.mark.asyncio
-async def test_execute_write(ds, sql, expected_message):
+async def test_execute_write(ds, database, sql, expected_message):
     async with httpx.AsyncClient(
         app=ds.app(), cookies={"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     ) as client:
@@ -72,7 +77,9 @@ async def test_execute_write(ds, sql, expected_message):
             data={
                 "sql": sql,
                 "csrftoken": csrftoken,
-                "database": "test",
+                "database": database,
             },
         )
         assert expected_message in response2.text
+        # Should have preserved ?database= in redirect:
+        assert response2.url.query.decode("utf-8") == "database={}".format(database)
