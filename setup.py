@@ -27,7 +27,11 @@ setup(
     license="Apache License, Version 2.0",
     version=VERSION,
     packages=["datasette_write"],
-    package_data={"datasette_write": ["templates/datasette_write.html",],},
+    package_data={
+        "datasette_write": [
+            "templates/datasette_write.html",
+        ],
+    },
     entry_points={"datasette": ["write = datasette_write"]},
     install_requires=["datasette>=0.45"],
     extras_require={"test": ["pytest", "pytest-asyncio", "httpx"]},

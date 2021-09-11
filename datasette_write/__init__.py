@@ -1,5 +1,6 @@
 from datasette import hookimpl
 from datasette.utils.asgi import Response
+from urllib.parse import urlencode
 
 
 async def write(request, datasette):
@@ -7,12 +8,20 @@ async def write(request, datasette):
         request.actor, "datasette-write", default=False
     ):
         return Response.html("Permission denied for datasette-write", status=403)
-    databases = [db for db in datasette.databases.values() if db.is_mutable]
+    databases = [
+        db
+        for db in datasette.databases.values()
+        if db.is_mutable and db.name != "_internal"
+    ]
     if request.method == "GET":
         return Response.html(
             await datasette.render_template(
                 "datasette_write.html",
-                {"databases": databases, "sql": request.args.get("sql") or ""},
+                {
+                    "databases": databases,
+                    "sql": request.args.get("sql") or "",
+                    "selected_databse": request.args.get("database") or "",
+                },
                 request=request,
             )
         )
@@ -25,7 +34,6 @@ async def write(request, datasette):
         except IndexError:
             return Response.html("Database not found", status_code=404)
 
-        error = None
         result = None
         message = None
         try:
@@ -37,10 +45,11 @@ async def write(request, datasette):
                     result.rowcount, "" if result.rowcount == 1 else "s"
                 )
         except Exception as e:
-            error = e
             message = str(e)
         datasette.add_message(
-            request, message, type=datasette.INFO if result else datasette.ERROR,
+            request,
+            message,
+            type=datasette.INFO if result else datasette.ERROR,
         )
         return Response.redirect("/-/write")
     else:
@@ -58,3 +67,40 @@ def register_routes():
 def permission_allowed(actor, action):
     if action == "datasette-write" and actor and actor.get("id") == "root":
         return True
+
+
+@hookimpl
+def menu_links(datasette, actor):
+    async def inner():
+        if await datasette.permission_allowed(actor, "datasette-write", default=False):
+            return [
+                {
+                    "href": datasette.urls.path("/-/write"),
+                    "label": "Execute SQL write",
+                },
+            ]
+
+    return inner
+
+
+@hookimpl
+def database_actions(datasette, actor, database):
+    async def inner():
+        if database != "_internal" and await datasette.permission_allowed(
+            actor, "datasette-write", default=False
+        ):
+            return [
+                {
+                    "href": datasette.urls.path(
+                        "/-/write?"
+                        + urlencode(
+                            {
+                                "database": database,
+                            }
+                        )
+                    ),
+                    "label": "Execute SQL write",
+                },
+            ]
+
+    return inner

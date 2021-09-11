@@ -8,7 +8,7 @@
 <form action="/-/write" method="post">
     <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
     <p><label>Database: <select name="database">{% for database in databases %}
-        <option>{{ database.name }}</option>
+        <option{% if database.name == selected_databse %} selected="selected"{% endif %}>{{ database.name }}</option>
     {% endfor %}</select></label></p>
     <p><textarea name="sql" style="width: 60%; height: 10em; padding: 6px;">{{ sql }}</textarea></p>
     <input type="submit" value="Submit query">
