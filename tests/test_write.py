@@ -1,4 +1,5 @@
 from datasette.app import Datasette
+from datasette_write import parse_create_alter_drop_sql
 import pytest
 import sqlite3
 import httpx
@@ -83,3 +84,22 @@ async def test_execute_write(ds, database, sql, expected_message):
         assert expected_message in response2.text
         # Should have preserved ?database= in redirect:
         assert response2.url.query.decode("utf-8") == "database={}".format(database)
+
+
+@pytest.mark.parametrize(
+    "sql,expected",
+    (
+        ("create table hello (...", "hello"),
+        ("  create view hello2 as (...", "hello2"),
+        ("select 1 + 1", None),
+        # Various styles of quoting
+        ("create table 'hello' (", "hello"),
+        ('  create   \n table "hello" (', "hello"),
+        ("create table [hello] (", "hello"),
+        ("create view 'hello' (", "hello"),
+        ('  create   \n view "hello" (', "hello"),
+        ("create view [hello] (", "hello"),
+    ),
+)
+def test_parse_create_alter_drop_sql(sql, expected):
+    assert parse_create_alter_drop_sql(sql) == expected

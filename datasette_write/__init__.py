@@ -1,6 +1,7 @@
 from datasette import hookimpl
 from datasette.utils.asgi import Response
 from urllib.parse import urlencode
+import re
 
 
 async def write(request, datasette):
@@ -114,3 +115,30 @@ def database_actions(datasette, actor, database):
             ]
 
     return inner
+
+
+_name_patterns = (
+    r"\[([^\]]+)\]",  # create table [foo]
+    r'"([^"]+)"',  # create table "foo"
+    r"'([^']+)'",  # create table 'foo'
+    r"([a-zA-Z_][a-zA-Z0-9_]*)",  # create table foo123
+)
+_res = []
+for type in ("table", "view"):
+    for name_pattern in _name_patterns:
+        pattern = r"\s*create\s+{}\s+{}.*".format(type, name_pattern)
+        print(pattern)
+        _res.append(re.compile(pattern, re.I))
+
+
+def parse_create_alter_drop_sql(sql):
+    """
+    Simple regex-based detection of 'create table foo' type queries
+
+    Returns the view or table name, or None if none was identified
+    """
+    for _re in _res:
+        match = _re.match(sql)
+        if match is not None:
+            return match.group(1)
+    return None
