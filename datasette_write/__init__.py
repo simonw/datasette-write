@@ -20,7 +20,7 @@ async def write(request, datasette):
                 {
                     "databases": databases,
                     "sql": request.args.get("sql") or "",
-                    "selected_databse": request.args.get("database") or "",
+                    "selected_database": request.args.get("database") or "",
                 },
                 request=request,
             )
