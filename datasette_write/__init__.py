@@ -48,7 +48,15 @@ async def write(request, datasette):
         try:
             result = await database.execute_write(sql, block=True)
             if result.rowcount == -1:
-                message = "Query executed"
+                # Maybe it was a create table / create view?
+                name_and_type = parse_create_alter_drop_sql(sql)
+                if name_and_type:
+                    message = "Created {}: {}".format(
+                        name_and_type[1],
+                        name_and_type[0],
+                    )
+                else:
+                    message = "Query executed"
             else:
                 message = "{} row{} affected".format(
                     result.rowcount, "" if result.rowcount == 1 else "s"
@@ -128,7 +136,7 @@ for type in ("table", "view"):
     for name_pattern in _name_patterns:
         pattern = r"\s*create\s+{}\s+{}.*".format(type, name_pattern)
         print(pattern)
-        _res.append(re.compile(pattern, re.I))
+        _res.append((type, re.compile(pattern, re.I)))
 
 
 def parse_create_alter_drop_sql(sql):
@@ -137,8 +145,8 @@ def parse_create_alter_drop_sql(sql):
 
     Returns the view or table name, or None if none was identified
     """
-    for _re in _res:
+    for type, _re in _res:
         match = _re.match(sql)
         if match is not None:
-            return match.group(1)
+            return match.group(1), type
     return None
