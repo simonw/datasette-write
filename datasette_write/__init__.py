@@ -14,13 +14,21 @@ async def write(request, datasette):
         if db.is_mutable and db.name != "_internal"
     ]
     if request.method == "GET":
+        selected_database = request.args.get("database") or ""
+        if not selected_database or selected_database == "_internal":
+            selected_database = databases[0].name
+        database = datasette.get_database(selected_database)
+        tables = await database.table_names()
+        views = await database.view_names()
         return Response.html(
             await datasette.render_template(
                 "datasette_write.html",
                 {
                     "databases": databases,
                     "sql": request.args.get("sql") or "",
-                    "selected_database": request.args.get("database") or "",
+                    "selected_database": selected_database,
+                    "tables": tables,
+                    "views": views,
                 },
                 request=request,
             )

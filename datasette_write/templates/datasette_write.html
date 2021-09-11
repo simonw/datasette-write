@@ -5,7 +5,7 @@
 {% block content %}
 <h1>Write to the database with SQL</h1>
 
-<form action="{{ base_url }}-/write" method="post">
+<form action="{{ base_url }}-/write" method="post" style="margin-bottom: 1em">
     <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
     <p><label>Database: <select name="database">{% for database in databases %}
         <option{% if database.name == selected_database %} selected="selected"{% endif %}>{{ database.name }}</option>
@@ -13,5 +13,22 @@
     <p><textarea name="sql" style="width: 60%; height: 10em; padding: 6px;">{{ sql }}</textarea></p>
     <input type="submit" value="Submit query">
 </form>
+
+{% if tables %}
+    <p><strong>Tables</strong>:
+        {% for table in tables %}
+            <a href="{{ urls.table(selected_database, table) }}">{{ table }}</a>{% if not loop.last %}, {% endif %}
+        {% endfor %}
+    </p>
+{% endif %}
+
+{% if views %}
+    <p><strong>Views</strong>:
+        {% for view in views %}
+            <a href="{{ urls.table(selected_database, view) }}">{{ view }}</a>{% if not loop.last %}, {% endif %}
+        {% endfor %}
+    </p>
+{% endif %}
+
 
 {% endblock %}

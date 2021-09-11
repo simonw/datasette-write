@@ -33,7 +33,9 @@ async def test_permission_granted_to_root(ds):
         "/-/write",
         cookies={"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")},
     )
-    assert 200 == response.status_code
+    assert response.status_code == 200
+    assert "<strong>Tables</strong>:" in response.text
+    assert '<a href="/test/one">one</a>' in response.text
 
 
 @pytest.mark.asyncio
