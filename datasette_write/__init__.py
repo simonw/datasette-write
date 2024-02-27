@@ -1,4 +1,5 @@
 from datasette import hookimpl, Forbidden, Response
+from datasette.utils import derive_named_parameters
 from urllib.parse import urlencode
 import re
 
@@ -20,13 +21,15 @@ async def write(request, datasette):
         database = datasette.get_database(selected_database)
         tables = await database.table_names()
         views = await database.view_names()
+        sql = request.args.get("sql") or ""
         return Response.html(
             await datasette.render_template(
                 "datasette_write.html",
                 {
                     "databases": databases,
-                    "sql_from_args": request.args.get("sql") or "",
+                    "sql_from_args": sql,
                     "selected_database": selected_database,
+                    "parameters": await derive_parameters(database, sql),
                     "tables": tables,
                     "views": views,
                 },
@@ -44,8 +47,12 @@ async def write(request, datasette):
 
         result = None
         message = None
+        params = {
+            key[3:]: value for key, value in formdata.items() if key.startswith("qp_")
+        }
+        print(params)
         try:
-            result = await database.execute_write(sql, block=True)
+            result = await database.execute_write(sql, params, block=True)
             if result.rowcount == -1:
                 # Maybe it was a create table / create view?
                 name_verb_type = parse_create_alter_drop_sql(sql)
@@ -74,16 +81,52 @@ async def write(request, datasette):
             type=datasette.INFO if result else datasette.ERROR,
         )
         return Response.redirect(
-            datasette.urls.path("/-/write?") + urlencode({"database": database.name})
+            datasette.urls.path("/-/write?")
+            + urlencode(
+                {
+                    "database": database.name,
+                    "sql": sql,
+                }
+            )
         )
     else:
         return Response.html("Bad method", status_code=405)
+
+
+async def derive_parameters(db, sql):
+    parameters = await derive_named_parameters(db, sql)
+    return [
+        {
+            "name": parameter,
+            "type": "textarea" if parameter.endswith("textarea") else "text",
+            "label": (
+                parameter.replace("_textarea", "")
+                if parameter.endswith("textarea")
+                else parameter
+            ),
+        }
+        for parameter in parameters
+    ]
+
+
+async def write_derive_parameters(datasette, request):
+    if not await datasette.permission_allowed(
+        request.actor, "datasette-write", default=False
+    ):
+        raise Forbidden("Permission denied for datasette-write")
+    try:
+        db = datasette.get_database(request.args.get("database"))
+    except KeyError:
+        db = datasette.get_database()
+    parameters = await derive_parameters(db, request.args.get("sql") or "")
+    return Response.json({"parameters": parameters})
 
 
 @hookimpl
 def register_routes():
     return [
         (r"^/-/write$", write),
+        (r"^/-/write/derive-parameters$", write_derive_parameters),
     ]
 
 

@@ -2,16 +2,64 @@
 
 {% block title %}Write with SQL{% endblock %}
 
+{% block extra_head %}
+<style>
+#query-parameters-area {
+    max-width: 600px; 
+}
+#query-parameters-area label {
+    display: inline;
+    max-width: 10em;
+    font-weight: bold;
+}
+#query-parameters-area {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    grid-gap: 10px;
+    align-items: start;
+    margin-bottom: 10px;
+}
+#query-parameters-area input[type="text"],
+#query-parameters-area textarea {
+    width: 100%;
+    box-sizing: border-box;
+}
+#query-parameters-area textarea {
+    height: 8em;
+}
+.submit-container {
+    padding-top: 1em;
+}
+.database-select label {
+    display: inline;
+}
+</style>
+{% endblock %}
+
 {% block content %}
 <h1>Write to the database with SQL</h1>
 
-<form action="{{ base_url }}-/write" method="post" style="margin-bottom: 1em">
+<form class="write-form" action="{{ base_url }}-/write" method="post" style="margin-bottom: 1em">
     <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
-    <p><label>Database: <select name="database">{% for database in databases %}
+    <p class="database-select"><label>Database: <select name="database">{% for database in databases %}
         <option{% if database.name == selected_database %} selected="selected"{% endif %}>{{ database.name }}</option>
     {% endfor %}</select></label></p>
-    <p><textarea name="sql" style="width: 60%; height: 10em; padding: 6px;">{{ sql_from_args }}</textarea></p>
-    <input type="submit" value="Submit query">
+    <p><textarea name="sql" style="box-sizing: border-box; width: 100%; padding-right: 10px; max-width: 600px; height: 10em; padding: 6px;">{{ sql_from_args }}</textarea></p>
+    <div class="query-parameters">
+        <div id="query-parameters-area">
+            {% for parameter in parameters %}
+                <label for="qp_{{ parameter.name }}">{{ parameter.label }}</label>
+                {% if parameter.type == "text" %}
+                    <input type="text" id="qp_{{ parameter.name }}" name="qp_{{ parameter.name }}" value="">
+                {% elif parameter.type == "textarea" %}
+                    <textarea id="qp_{{ parameter.name }}" name="qp_{{ parameter.name }}"></textarea>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    <div class="submit-container">
+        <input type="submit" value="Execute query">
+    </div>
 </form>
 
 {% if tables %}
@@ -30,5 +78,73 @@
     </p>
 {% endif %}
 
+<script>
+function buildQueryParametersHtml(parameters) {
+    let htmlString = '';
+    parameters.forEach(param => {
+        if (param.type === 'text') {
+            htmlString += `<label for="qp_${param.name}">${param.label}</label> <input type="text" id="qp_${param.name}" name="qp_${param.name}" value="">\n`;
+        } else if (param.type === 'textarea') {
+            htmlString += `<label for="qp_${param.name}">${param.label}</label> <textarea id="qp_${param.name}" name="qp_${param.name}"></textarea>\n`;
+        }
+    });
+    return htmlString;
+}
+
+const sqlTextArea = document.querySelector('textarea[name="sql"]');
+const queryParametersArea = document.getElementById('query-parameters-area');
+let lastRequestTime = 0;
+let timeoutId = null;
+
+sqlTextArea.addEventListener('input', () => {
+    const currentTime = Date.now();
+    if (currentTime - lastRequestTime > 1000) {
+        lastRequestTime = currentTime;
+        updateForm(sqlTextArea.value);
+    } else {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(() => {
+            lastRequestTime = Date.now();
+            updateForm(sqlTextArea.value);
+        }, 1000 - (currentTime - lastRequestTime));
+    }
+});
+
+function updateForm(sqlQuery) {
+    const apiUrl = `/-/write/derive-parameters?sql=${encodeURIComponent(sqlTextArea.value)}`;
+    fetch(apiUrl)
+        .then(response => response.json())
+        .then(data => {
+            if (data.parameters.length) {
+                queryParametersArea.innerHTML = buildQueryParametersHtml(data.parameters);
+            } else {
+                queryParametersArea.innerHTML = '';
+            }
+        })
+        .catch(error => console.error('Error fetching API:', error));
+}
+updateForm();
+
+
+/* If there is a positive message-info, fade and shrink after 2s */
+function fadeAndShrink(element) {
+    if (element) {
+        element.style.transition = 'opacity 0.2s, height 0.8s, padding-top 0.8s, padding-bottom 0.8s';
+        element.style.opacity = '0';
+        element.style.height = '0';
+        element.style.paddingTop = '0';
+        element.style.paddingBottom = '0';
+        setTimeout(() => {
+            element.remove();
+        }, 800);
+    }
+}
+const messageInfo = document.querySelector('.message-info');
+if (messageInfo) {
+    setTimeout(() => {
+        fadeAndShrink(messageInfo);
+    }, 2000);
+}
+</script>
 
 {% endblock %}

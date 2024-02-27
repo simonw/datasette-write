@@ -23,6 +23,17 @@ The `datasette-write` permission governs access. You can use permission plugins 
 
 Pass `?sql=...` in the query string to pre-populate the SQL editor with a query. Pass `?database=...` to specify a database to run the query against.
 
+## Parameterized queries
+
+SQL queries can include parameters like this:
+```sql
+insert into news (title, body)
+    values (:title, :body_textarea)
+```
+These will be converted into form fields on the `/-/write` page.
+
+If a parameter name ends with `_textarea` it will be rendered as a multi-line textarea instead of a text input.
+
 ## Development
 
 To set up this plugin locally, first checkout the code. Then create a new virtual environment:

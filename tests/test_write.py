@@ -2,6 +2,7 @@ from datasette.app import Datasette
 from datasette_write import parse_create_alter_drop_sql
 import pytest
 import sqlite3
+import urllib
 
 
 @pytest.fixture
@@ -71,39 +72,53 @@ async def test_populate_sql_from_query_string(ds):
 
 
 @pytest.mark.parametrize(
-    "database,sql,expected_message",
+    "database,sql,params,expected_message",
     [
         (
             "test",
             "create table newtable (id integer)",
+            {},
             "Created table: newtable",
         ),
         (
             "test",
             "drop table one",
+            {},
             "Dropped table: one",
         ),
         (
             "test",
             "alter table one add column bigfile blob",
+            {},
             "Altered table: one",
         ),
         (
             "test2",
             "create table newtable (id integer)",
+            {},
             "Created table: newtable",
         ),
         (
             "test2",
             "create view blah as select 1 + 1",
+            {},
             "Created view: blah",
         ),
-        ("test", "update one set count = 5", "2 rows affected"),
-        ("test", "invalid sql", 'near "invalid": syntax error'),
+        ("test", "update one set count = 5", {}, "2 rows affected"),
+        ("test", "invalid sql", {}, 'near "invalid": syntax error'),
+        # Parameterized queries
+        ("test", "update one set count = :count", {"qp_count": 4}, "2 rows affected"),
+        # This should error
+        (
+            "test",
+            "update one set count = :count",
+            {},
+            "Incorrect number of bindings supplied. The current statement uses 1, and there are 0 supplied.",
+        ),
     ],
 )
 @pytest.mark.asyncio
-async def test_execute_write(ds, database, sql, expected_message):
+async def test_execute_write(ds, database, sql, params, expected_message):
     # Get csrftoken
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
     response = await ds.client.get("/-/write", cookies=cookies)
@@ -117,13 +132,17 @@ async def test_execute_write(ds, database, sql, expected_message):
             "sql": sql,
             "csrftoken": csrftoken,
             "database": database,
-        },
+        }
+        | params,
         cookies=cookies,
     )
     messages = [m[0] for m in ds.unsign(response2.cookies["ds_messages"], "messages")]
     assert messages[0] == expected_message
     # Should have preserved ?database= in redirect:
-    assert response2.headers["location"].endswith("?database={}".format(database))
+    bits = dict(urllib.parse.parse_qsl(response2.headers["location"].split("?")[-1]))
+    assert bits["database"] == database
+    # Should have preserved ?sql= in redirect:
+    assert bits["sql"] == sql
 
 
 @pytest.mark.parametrize(
