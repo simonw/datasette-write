@@ -9,9 +9,9 @@ Datasette plugin providing a UI for writing to a database
 ## Installation
 
 Install this plugin in the same environment as Datasette.
-
-    $ pip install datasette-write
-
+```bash
+pip install datasette-write
+```
 ## Usage
 
 Having installed the plugin, visit `/-/write` on your Datasette instance to submit SQL queries that will be executed against a write connection to the specified database.
@@ -25,19 +25,20 @@ Pass `?sql=...` in the query string to pre-populate the SQL editor with a query.
 ## Development
 
 To set up this plugin locally, first checkout the code. Then create a new virtual environment:
-
-    cd datasette-write
-    python3 -mvenv venv
-    source venv/bin/activate
-
+```bash
+cd datasette-write
+python3 -mvenv venv
+source venv/bin/activate
+```
 Or if you are using `pipenv`:
-
-    pipenv shell
-
+```bash
+pipenv shell
+```
 Now install the dependencies and tests:
-
-    pip install -e '.[test]'
-
+```bash
+pip install -e '.[test]'
+```
 To run the tests:
-
-    pytest
+```bash
+pytest
+```
