@@ -37,6 +37,17 @@ async def test_permission_granted_to_root(ds):
     assert "<strong>Tables</strong>:" in response.text
     assert '<a href="/test/one">one</a>' in response.text
 
+    # Should have database action menu option too:
+    anon_response = (await ds.client.get("/test")).text
+    fragment = ">Execute SQL write<"
+    assert fragment not in anon_response
+    root_response = (
+        await ds.client.get(
+            "/test", cookies={"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
+        )
+    ).text
+    assert fragment in root_response
+
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("database", ["test", "test2"])
