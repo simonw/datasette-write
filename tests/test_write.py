@@ -2,7 +2,6 @@ from datasette.app import Datasette
 from datasette_write import parse_create_alter_drop_sql
 import pytest
 import sqlite3
-import httpx
 
 
 @pytest.fixture
@@ -56,53 +55,54 @@ async def test_select_database(ds, database):
         (
             "test",
             "create table newtable (id integer)",
-            'message-info">Created table: newtable<',
+            "Created table: newtable",
         ),
         (
             "test",
             "drop table one",
-            'message-info">Dropped table: one<',
+            "Dropped table: one",
         ),
         (
             "test",
             "alter table one add column bigfile blob",
-            'message-info">Altered table: one<',
+            "Altered table: one",
         ),
         (
             "test2",
             "create table newtable (id integer)",
-            'message-info">Created table: newtable<',
+            "Created table: newtable",
         ),
         (
             "test2",
             "create view blah as select 1 + 1",
-            'message-info">Created view: blah<',
+            "Created view: blah",
         ),
-        ("test", "update one set count = 5", 'message-info">2 rows affected<'),
-        ("test", "invalid sql", 'message-error">near &#34;invalid&#34;: syntax error<'),
+        ("test", "update one set count = 5", "2 rows affected"),
+        ("test", "invalid sql", 'near "invalid": syntax error'),
     ],
 )
 @pytest.mark.asyncio
 async def test_execute_write(ds, database, sql, expected_message):
-    async with httpx.AsyncClient(
-        app=ds.app(), cookies={"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
-    ) as client:
-        # Get csrftoken
-        response = await client.get("http://localhost/-/write")
-        assert 200 == response.status_code
-        csrftoken = response.cookies["ds_csrftoken"]
-        # write to database
-        response2 = await client.post(
-            "http://localhost/-/write",
-            data={
-                "sql": sql,
-                "csrftoken": csrftoken,
-                "database": database,
-            },
-        )
-        assert expected_message in response2.text
-        # Should have preserved ?database= in redirect:
-        assert response2.url.query.decode("utf-8") == "database={}".format(database)
+    # Get csrftoken
+    cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
+    response = await ds.client.get("/-/write", cookies=cookies)
+    assert 200 == response.status_code
+    csrftoken = response.cookies["ds_csrftoken"]
+    cookies["ds_csrftoken"] = csrftoken
+    # write to database
+    response2 = await ds.client.post(
+        "/-/write",
+        data={
+            "sql": sql,
+            "csrftoken": csrftoken,
+            "database": database,
+        },
+        cookies=cookies,
+    )
+    messages = [m[0] for m in ds.unsign(response2.cookies["ds_messages"], "messages")]
+    assert messages[0] == expected_message
+    # Should have preserved ?database= in redirect:
+    assert response2.headers["location"].endswith("?database={}".format(database))
 
 
 @pytest.mark.parametrize(
