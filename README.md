@@ -2,6 +2,7 @@
 
 [![PyPI](https://img.shields.io/pypi/v/datasette-write.svg)](https://pypi.org/project/datasette-write/)
 [![Changelog](https://img.shields.io/github/v/release/simonw/datasette-write?label=changelog)](https://github.com/simonw/datasette-write/releases)
+[![Tests](https://github.com/simonw/datasette-write/workflows/Test/badge.svg)](https://github.com/simonw/datasette-write/actions?query=workflow%3ATest)
 [![License](https://img.shields.io/badge/license-Apache%202.0-blue.svg)](https://github.com/simonw/datasette-write/blob/master/LICENSE)
 
 Datasette plugin providing a UI for writing to a database
