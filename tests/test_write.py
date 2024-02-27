@@ -49,6 +49,16 @@ async def test_select_database(ds, database):
     assert '<option selected="selected">{}</option>'.format(database) in response.text
 
 
+@pytest.mark.asyncio
+async def test_populate_sql_from_query_string(ds):
+    response = await ds.client.get(
+        "/-/write?sql=select+1",
+        cookies={"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")},
+    )
+    assert response.status_code == 200
+    assert '">select 1</textarea>' in response.text
+
+
 @pytest.mark.parametrize(
     "database,sql,expected_message",
     [

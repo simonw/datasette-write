@@ -26,7 +26,7 @@ async def write(request, datasette):
                 "datasette_write.html",
                 {
                     "databases": databases,
-                    "sql": request.args.get("sql") or "",
+                    "sql_from_args": request.args.get("sql") or "",
                     "selected_database": selected_database,
                     "tables": tables,
                     "views": views,

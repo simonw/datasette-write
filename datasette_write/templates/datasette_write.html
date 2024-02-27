@@ -10,7 +10,7 @@
     <p><label>Database: <select name="database">{% for database in databases %}
         <option{% if database.name == selected_database %} selected="selected"{% endif %}>{{ database.name }}</option>
     {% endfor %}</select></label></p>
-    <p><textarea name="sql" style="width: 60%; height: 10em; padding: 6px;">{{ sql }}</textarea></p>
+    <p><textarea name="sql" style="width: 60%; height: 10em; padding: 6px;">{{ sql_from_args }}</textarea></p>
     <input type="submit" value="Submit query">
 </form>
 

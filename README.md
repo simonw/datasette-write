@@ -20,6 +20,8 @@ By default only the `root` user can access the page - so you'll need to run Data
 
 The `datasette-write` permission governs access. You can use permission plugins such as [datasette-permissions-sql](https://github.com/simonw/datasette-permissions-sql) to grant additional access to the write interface.
 
+Pass `?sql=...` in the query string to pre-populate the SQL editor with a query. Pass `?database=...` to specify a database to run the query against.
+
 ## Development
 
 To set up this plugin locally, first checkout the code. Then create a new virtual environment:
