@@ -125,15 +125,16 @@ async def test_execute_write(ds, database, sql, params, expected_message):
     assert 200 == response.status_code
     csrftoken = response.cookies["ds_csrftoken"]
     cookies["ds_csrftoken"] = csrftoken
+    data = {
+        "sql": sql,
+        "csrftoken": csrftoken,
+        "database": database,
+    }
+    data.update(params)
     # write to database
     response2 = await ds.client.post(
         "/-/write",
-        data={
-            "sql": sql,
-            "csrftoken": csrftoken,
-            "database": database,
-        }
-        | params,
+        data=data,
         cookies=cookies,
     )
     messages = [m[0] for m in ds.unsign(response2.cookies["ds_messages"], "messages")]
