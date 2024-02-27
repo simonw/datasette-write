@@ -1,7 +1,7 @@
 from setuptools import setup
 import os
 
-VERSION = "0.2"
+VERSION = "0.3"
 
 
 def get_long_description():
@@ -33,7 +33,6 @@ setup(
         ],
     },
     entry_points={"datasette": ["write = datasette_write"]},
-    install_requires=["datasette>=0.45"],
+    install_requires=["datasette>=0.64.6"],
     extras_require={"test": ["pytest", "pytest-asyncio", "httpx"]},
-    tests_require=["datasette-write[test]"],
 )
