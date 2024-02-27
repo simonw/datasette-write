@@ -1,5 +1,4 @@
-from datasette import hookimpl
-from datasette.utils.asgi import Response
+from datasette import hookimpl, Forbidden, Response
 from urllib.parse import urlencode
 import re
 
@@ -8,7 +7,7 @@ async def write(request, datasette):
     if not await datasette.permission_allowed(
         request.actor, "datasette-write", default=False
     ):
-        return Response.html("Permission denied for datasette-write", status=403)
+        raise Forbidden("Permission denied for datasette-write")
     databases = [
         db
         for db in datasette.databases.values()
