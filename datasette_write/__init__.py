@@ -167,6 +167,7 @@ def database_actions(datasette, actor, database):
                         )
                     ),
                     "label": "Execute SQL write",
+                    "description": "Run queries like insert/update/delete against this database",
                 },
             ]
 
