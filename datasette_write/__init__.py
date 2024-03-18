@@ -50,7 +50,6 @@ async def write(request, datasette):
         params = {
             key[3:]: value for key, value in formdata.items() if key.startswith("qp_")
         }
-        print(params)
         try:
             result = await database.execute_write(sql, params, block=True)
             if result.rowcount == -1:
