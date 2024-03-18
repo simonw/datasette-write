@@ -22,6 +22,10 @@ async def write(request, datasette):
         tables = await database.table_names()
         views = await database.view_names()
         sql = request.args.get("sql") or ""
+        parameters = await derive_parameters(database, sql)
+        # Set values based on incoming request query string
+        for parameter in parameters:
+            parameter["value"] = request.args.get(parameter["name"]) or ""
         return Response.html(
             await datasette.render_template(
                 "datasette_write.html",
@@ -29,9 +33,12 @@ async def write(request, datasette):
                     "databases": databases,
                     "sql_from_args": sql,
                     "selected_database": selected_database,
-                    "parameters": await derive_parameters(database, sql),
+                    "parameters": parameters,
                     "tables": tables,
                     "views": views,
+                    "redirect_to": request.args.get("_redirect_to")
+                    or "",  # TODO: Sign this
+                    "sql_textarea_height": max(10, int(1.4 * len(sql.split("\n")))),
                 },
                 request=request,
             )
@@ -50,7 +57,6 @@ async def write(request, datasette):
         params = {
             key[3:]: value for key, value in formdata.items() if key.startswith("qp_")
         }
-        print(params)
         try:
             result = await database.execute_write(sql, params, block=True)
             if result.rowcount == -1:
@@ -80,15 +86,17 @@ async def write(request, datasette):
             message,
             type=datasette.INFO if result else datasette.ERROR,
         )
-        return Response.redirect(
-            datasette.urls.path("/-/write?")
-            + urlencode(
-                {
-                    "database": database.name,
-                    "sql": sql,
-                }
-            )
+
+        redirect_to = formdata.get("_redirect_to") or datasette.urls.path(
+            "/-/write?"
+        ) + urlencode(
+            {
+                "database": database.name,
+                "sql": sql,
+            }
         )
+
+        return Response.redirect(redirect_to)
     else:
         return Response.html("Bad method", status_code=405)
 
@@ -168,6 +176,62 @@ def database_actions(datasette, actor, database):
                     ),
                     "label": "Execute SQL write",
                     "description": "Run queries like insert/update/delete against this database",
+                },
+            ]
+
+    return inner
+
+
+@hookimpl
+def row_actions(datasette, actor, database, table, row, request):
+    async def inner():
+        if database != "_internal" and await datasette.permission_allowed(
+            actor, "datasette-write", default=False
+        ):
+            db = datasette.get_database(database)
+            pks = []
+            columns = []
+            for details in await db.table_column_details(table):
+                if details.is_pk:
+                    pks.append(details.name)
+                else:
+                    columns.append(
+                        {
+                            "name": details.name,
+                            "notnull": details.notnull,
+                        }
+                    )
+            row_dict = dict(row)
+            set_clause_bits = []
+            args = {
+                "database": database,
+            }
+            for column in columns:
+                field_name = column["name"]
+                current_value = str(row_dict.get(field_name) or "")
+                if "\n" in current_value:
+                    field_name = field_name + "_textarea"
+                if column["notnull"]:
+                    fragment = "{} = :{}"
+                else:
+                    fragment = "{} = nullif(:{}, '')"
+                set_clause_bits.append(fragment.format(column["name"], field_name))
+                args[field_name] = current_value
+            set_clauses = ",\n  ".join(set_clause_bits)
+
+            where_clauses = " and ".join("{} = :{}".format(pk, pk) for pk in pks)
+            args.update([(pk, row_dict[pk]) for pk in pks])
+
+            sql = 'update "{}" set\n  {}\nwhere {}'.format(
+                table, set_clauses, where_clauses
+            )
+            args["sql"] = sql
+            args["_redirect_to"] = request.path
+            return [
+                {
+                    "href": datasette.urls.path("/-/write") + "?" + urlencode(args),
+                    "label": "Update using SQL",
+                    "description": "Compose and execute a SQL query to update this row",
                 },
             ]
 

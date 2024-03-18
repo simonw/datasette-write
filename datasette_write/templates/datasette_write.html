@@ -25,7 +25,7 @@
     box-sizing: border-box;
 }
 #query-parameters-area textarea {
-    height: 8em;
+    height: 20em;
 }
 .submit-container {
     padding-top: 1em;
@@ -44,20 +44,21 @@
     <p class="database-select"><label>Database: <select name="database">{% for database in databases %}
         <option{% if database.name == selected_database %} selected="selected"{% endif %}>{{ database.name }}</option>
     {% endfor %}</select></label></p>
-    <p><textarea name="sql" style="box-sizing: border-box; width: 100%; padding-right: 10px; max-width: 600px; height: 10em; padding: 6px;">{{ sql_from_args }}</textarea></p>
+    <p><textarea name="sql" style="box-sizing: border-box; width: 100%; padding-right: 10px; max-width: 600px; height: {{ sql_textarea_height }}em; padding: 6px;">{{ sql_from_args }}</textarea></p>
     <div class="query-parameters">
         <div id="query-parameters-area">
             {% for parameter in parameters %}
                 <label for="qp_{{ parameter.name }}">{{ parameter.label }}</label>
                 {% if parameter.type == "text" %}
-                    <input type="text" id="qp_{{ parameter.name }}" name="qp_{{ parameter.name }}" value="">
+                    <input type="text" id="qp_{{ parameter.name }}" name="qp_{{ parameter.name }}" value="{{ parameter.value }}">
                 {% elif parameter.type == "textarea" %}
-                    <textarea id="qp_{{ parameter.name }}" name="qp_{{ parameter.name }}"></textarea>
+                    <textarea id="qp_{{ parameter.name }}" name="qp_{{ parameter.name }}">{{ parameter.value }}</textarea>
                 {% endif %}
             {% endfor %}
         </div>
     </div>
     <div class="submit-container">
+        <input type="hidden" name="_redirect_to" value="{{ redirect_to }}">
         <input type="submit" value="Execute query">
     </div>
 </form>
@@ -81,14 +82,35 @@
 <script>
 function buildQueryParametersHtml(parameters) {
     let htmlString = '';
+    var qsParams = new URLSearchParams(location.search);
     parameters.forEach(param => {
+        const value = escapeHtml(qsParams.get(param.name) || '');
         if (param.type === 'text') {
-            htmlString += `<label for="qp_${param.name}">${param.label}</label> <input type="text" id="qp_${param.name}" name="qp_${param.name}" value="">\n`;
+            htmlString += `
+              <label for="qp_${param.name}">${param.label}</label>
+              <input type="text" id="qp_${param.name}" name="qp_${param.name}" value="${value}">
+            `;
         } else if (param.type === 'textarea') {
-            htmlString += `<label for="qp_${param.name}">${param.label}</label> <textarea id="qp_${param.name}" name="qp_${param.name}"></textarea>\n`;
+            htmlString += `
+              <label for="qp_${param.name}">${param.label}</label>
+              <textarea id="qp_${param.name}" name="qp_${param.name}">${value}</textarea>
+            `;
         }
     });
     return htmlString;
+}
+
+function escapeHtml(str) {
+    return str.replace(/[&<>"']/g, function(match) {
+        switch (match) {
+            case '&': return '&amp;';
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '"': return '&quot;';
+            case "'": return '&#39;';
+            default: return match;
+        }
+    });
 }
 
 const sqlTextArea = document.querySelector('textarea[name="sql"]');
