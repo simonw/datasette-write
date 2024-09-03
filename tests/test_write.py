@@ -159,3 +159,22 @@ def test_parse_create_alter_drop_sql(sql, expected_name, expected_verb, expected
         assert name_verb_type is None
     else:
         assert name_verb_type == (expected_name, expected_verb, expected_type)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path,expected_path",
+    (
+        ("/-/write", "/test/-/write"),
+        ("/-/write?database=test", "/test/-/write"),
+        ("/-/write?database=test2", "/test2/-/write"),
+        ("/-/write?database=test2&a=1&a=2", "/test2/-/write?a=1&a=2"),
+    ),
+)
+async def test_write_redirect(ds, path, expected_path):
+    response = await ds.client.get(
+        path,
+        cookies={"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")},
+    )
+    assert response.status_code == 302
+    assert response.headers["location"] == expected_path

@@ -99,7 +99,15 @@ async def write_redirect(request, datasette):
     if not db:
         db = datasette.get_database().name
 
-    return Response.redirect(datasette.urls.database(db) + "/-/write")
+    # Preserve query string, except the database=
+    pairs = [
+        (key, request.args.getlist(key)) for key in request.args if key != "database"
+    ]
+    query_string = ""
+    if pairs:
+        query_string = "?" + urlencode(pairs, doseq=True)
+
+    return Response.redirect(datasette.urls.database(db) + "/-/write" + query_string)
 
 
 async def derive_parameters(db, sql):
