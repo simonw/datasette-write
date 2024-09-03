@@ -9,16 +9,9 @@ async def write(request, datasette):
         request.actor, "datasette-write", default=False
     ):
         raise Forbidden("Permission denied for datasette-write")
-    databases = [
-        db
-        for db in datasette.databases.values()
-        if db.is_mutable and db.name != "_internal"
-    ]
+    database_name = request.url_vars["database"]
     if request.method == "GET":
-        selected_database = request.args.get("database") or ""
-        if not selected_database or selected_database == "_internal":
-            selected_database = databases[0].name
-        database = datasette.get_database(selected_database)
+        database = datasette.get_database(database_name)
         tables = await database.table_names()
         views = await database.view_names()
         sql = request.args.get("sql") or ""
@@ -30,10 +23,14 @@ async def write(request, datasette):
             await datasette.render_template(
                 "datasette_write.html",
                 {
-                    "databases": databases,
                     "sql_from_args": sql,
+<<<<<<< HEAD
                     "selected_database": selected_database,
                     "parameters": parameters,
+=======
+                    "database_name": database_name,
+                    "parameters": await derive_parameters(database, sql),
+>>>>>>> main
                     "tables": tables,
                     "views": views,
                     "redirect_to": request.args.get("_redirect_to")
@@ -45,12 +42,8 @@ async def write(request, datasette):
         )
     elif request.method == "POST":
         formdata = await request.post_vars()
-        database_name = formdata["database"]
         sql = formdata["sql"]
-        try:
-            database = [db for db in databases if db.name == database_name][0]
-        except IndexError:
-            return Response.html("Database not found", status_code=404)
+        database = datasette.get_database(database_name)
 
         result = None
         message = None
@@ -101,6 +94,19 @@ async def write(request, datasette):
         return Response.html("Bad method", status_code=405)
 
 
+async def write_redirect(request, datasette):
+    if not await datasette.permission_allowed(
+        request.actor, "datasette-write", default=False
+    ):
+        raise Forbidden("Permission denied for datasette-write")
+
+    db = request.args.get("database") or ""
+    if not db:
+        db = datasette.get_database().name
+
+    return Response.redirect(datasette.urls.database(db) + "/-/write")
+
+
 async def derive_parameters(db, sql):
     parameters = await derive_named_parameters(db, sql)
     return [
@@ -133,7 +139,8 @@ async def write_derive_parameters(datasette, request):
 @hookimpl
 def register_routes():
     return [
-        (r"^/-/write$", write),
+        (r"^/(?P<database>[^/]+)/-/write$", write),
+        (r"^/-/write$", write_redirect),
         (r"^/-/write/derive-parameters$", write_derive_parameters),
     ]
 
@@ -145,20 +152,6 @@ def permission_allowed(actor, action):
 
 
 @hookimpl
-def menu_links(datasette, actor):
-    async def inner():
-        if await datasette.permission_allowed(actor, "datasette-write", default=False):
-            return [
-                {
-                    "href": datasette.urls.path("/-/write"),
-                    "label": "Execute SQL write",
-                },
-            ]
-
-    return inner
-
-
-@hookimpl
 def database_actions(datasette, actor, database):
     async def inner():
         if database != "_internal" and await datasette.permission_allowed(
@@ -166,14 +159,7 @@ def database_actions(datasette, actor, database):
         ):
             return [
                 {
-                    "href": datasette.urls.path(
-                        "/-/write?"
-                        + urlencode(
-                            {
-                                "database": database,
-                            }
-                        )
-                    ),
+                    "href": datasette.urls.database(database) + "/-/write",
                     "label": "Execute SQL write",
                     "description": "Run queries like insert/update/delete against this database",
                 },
