@@ -24,14 +24,14 @@ def ds(tmp_path_factory):
 
 @pytest.mark.asyncio
 async def test_permission_denied(ds):
-    response = await ds.client.get("/-/write")
+    response = await ds.client.get("/test/-/write")
     assert 403 == response.status_code
 
 
 @pytest.mark.asyncio
 async def test_permission_granted_to_root(ds):
     response = await ds.client.get(
-        "/-/write",
+        "/test/-/write",
         cookies={"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")},
     )
     assert response.status_code == 200
@@ -40,7 +40,7 @@ async def test_permission_granted_to_root(ds):
 
     # Should have database action menu option too:
     anon_response = (await ds.client.get("/test")).text
-    fragment = ">Execute SQL write<"
+    fragment = '<a href="/test/-/write">Execute SQL write'
     assert fragment not in anon_response
     root_response = (
         await ds.client.get(
@@ -51,20 +51,9 @@ async def test_permission_granted_to_root(ds):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("database", ["test", "test2"])
-async def test_select_database(ds, database):
-    response = await ds.client.get(
-        "/-/write?database={}".format(database),
-        cookies={"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")},
-    )
-    assert response.status_code == 200
-    assert '<option selected="selected">{}</option>'.format(database) in response.text
-
-
-@pytest.mark.asyncio
 async def test_populate_sql_from_query_string(ds):
     response = await ds.client.get(
-        "/-/write?sql=select+1",
+        "/test/-/write?sql=select+1",
         cookies={"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")},
     )
     assert response.status_code == 200
@@ -121,19 +110,18 @@ async def test_populate_sql_from_query_string(ds):
 async def test_execute_write(ds, database, sql, params, expected_message):
     # Get csrftoken
     cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
-    response = await ds.client.get("/-/write", cookies=cookies)
+    response = await ds.client.get("/{}/-/write".format(database), cookies=cookies)
     assert 200 == response.status_code
     csrftoken = response.cookies["ds_csrftoken"]
     cookies["ds_csrftoken"] = csrftoken
     data = {
         "sql": sql,
         "csrftoken": csrftoken,
-        "database": database,
     }
     data.update(params)
     # write to database
     response2 = await ds.client.post(
-        "/-/write",
+        "/{}/-/write".format(database),
         data=data,
         cookies=cookies,
     )

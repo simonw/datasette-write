@@ -36,14 +36,15 @@
 </style>
 {% endblock %}
 
-{% block content %}
-<h1>Write to the database with SQL</h1>
+{% block crumbs %}
+{{ crumbs.nav(request=request, database=database_name) }}
+{% endblock %}
 
-<form class="write-form" action="{{ base_url }}-/write" method="post" style="margin-bottom: 1em">
+{% block content %}
+<h1>Write to {{ database_name }} with SQL</h1>
+
+<form class="write-form core" action="{{ request.path }}" method="post" style="margin-bottom: 1em">
     <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
-    <p class="database-select"><label>Database: <select name="database">{% for database in databases %}
-        <option{% if database.name == selected_database %} selected="selected"{% endif %}>{{ database.name }}</option>
-    {% endfor %}</select></label></p>
     <p><textarea name="sql" style="box-sizing: border-box; width: 100%; padding-right: 10px; max-width: 600px; height: 10em; padding: 6px;">{{ sql_from_args }}</textarea></p>
     <div class="query-parameters">
         <div id="query-parameters-area">
@@ -65,7 +66,7 @@
 {% if tables %}
     <p><strong>Tables</strong>:
         {% for table in tables %}
-            <a href="{{ urls.table(selected_database, table) }}">{{ table }}</a>{% if not loop.last %}, {% endif %}
+            <a href="{{ urls.table(database_name, table) }}">{{ table }}</a>{% if not loop.last %}, {% endif %}
         {% endfor %}
     </p>
 {% endif %}
@@ -73,7 +74,7 @@
 {% if views %}
     <p><strong>Views</strong>:
         {% for view in views %}
-            <a href="{{ urls.table(selected_database, view) }}">{{ view }}</a>{% if not loop.last %}, {% endif %}
+            <a href="{{ urls.table(database_name, view) }}">{{ view }}</a>{% if not loop.last %}, {% endif %}
         {% endfor %}
     </p>
 {% endif %}
