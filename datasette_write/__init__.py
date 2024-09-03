@@ -1,5 +1,6 @@
 from datasette import hookimpl, Forbidden, Response
 from datasette.utils import derive_named_parameters
+import itsdangerous
 from urllib.parse import urlencode
 import re
 
