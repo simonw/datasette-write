@@ -28,8 +28,7 @@ async def write(request, datasette):
                     "database_name": database_name,
                     "tables": tables,
                     "views": views,
-                    "redirect_to": request.args.get("_redirect_to")
-                    or "",  # TODO: Sign this
+                    "redirect_to": request.args.get("_redirect_to"),
                     "sql_textarea_height": max(10, int(1.4 * len(sql.split("\n")))),
                 },
                 request=request,
@@ -74,16 +73,18 @@ async def write(request, datasette):
             message,
             type=datasette.INFO if result else datasette.ERROR,
         )
-
-        redirect_to = formdata.get("_redirect_to") or datasette.urls.path(
-            "/-/write?"
-        ) + urlencode(
+        # Default redirect back to this page
+        redirect_to = datasette.urls.path("/-/write?") + urlencode(
             {
                 "database": database.name,
                 "sql": sql,
             }
         )
-
+        try:
+            # Unless value and valid signature for _redirect_to=
+            redirect_to = datasette.unsign(formdata["_redirect_to"], "redirect_to")
+        except (KeyError, ValueError):
+            pass
         return Response.redirect(redirect_to)
     else:
         return Response.html("Bad method", status_code=405)
@@ -215,7 +216,7 @@ def row_actions(datasette, actor, database, table, row, request):
                 table, set_clauses, where_clauses
             )
             args["sql"] = sql
-            args["_redirect_to"] = request.path
+            args["_redirect_to"] = datasette.sign(request.path, "redirect_to")
             return [
                 {
                     "href": datasette.urls.path("/-/write") + "?" + urlencode(args),
