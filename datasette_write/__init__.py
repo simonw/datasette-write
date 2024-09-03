@@ -24,13 +24,8 @@ async def write(request, datasette):
                 "datasette_write.html",
                 {
                     "sql_from_args": sql,
-<<<<<<< HEAD
-                    "selected_database": selected_database,
                     "parameters": parameters,
-=======
                     "database_name": database_name,
-                    "parameters": await derive_parameters(database, sql),
->>>>>>> main
                     "tables": tables,
                     "views": views,
                     "redirect_to": request.args.get("_redirect_to")
