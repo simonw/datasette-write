@@ -1,3 +1,4 @@
+from bs4 import BeautifulSoup as Soup
 from datasette.app import Datasette
 from datasette_write import parse_create_alter_drop_sql
 import pytest
@@ -178,3 +179,37 @@ async def test_write_redirect(ds, path, expected_path):
     )
     assert response.status_code == 302
     assert response.headers["location"] == expected_path
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("valid", (True, False))
+async def test_redirect_to(ds, valid):
+    cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
+    signed_redirect_to = ds.sign("/", "redirect_to")
+    used_redirect_to = signed_redirect_to + ("" if valid else "invalid")
+    response = await ds.client.get(
+        "/test/-/write",
+        params={"_redirect_to": used_redirect_to},
+        cookies=cookies,
+    )
+    assert response.status_code == 200
+    # Should have redirect_to field
+    input = Soup(response.text, "html.parser").find("input", {"name": "_redirect_to"})
+    assert input.attrs["value"] == used_redirect_to
+    assert '<input type="hidden" name="_redirect_to"' in response.text
+    csrftoken = response.cookies["ds_csrftoken"]
+    cookies["ds_csrftoken"] = csrftoken
+    data = {
+        "sql": "select 1",
+        "csrftoken": csrftoken,
+        "_redirect_to": signed_redirect_to,
+    }
+    # POSTing this should redirect to / if signed_redirect_to is valid
+    response2 = await ds.client.post(
+        "/test/-/write",
+        data=data,
+        cookies=cookies,
+    )
+    assert response2.status_code == 302
+    actual_redirect_to = response2.headers["location"]
+    assert actual_redirect_to == "/" if valid else "/test/-/write"

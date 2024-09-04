@@ -92,7 +92,7 @@ async def write(request, datasette):
         try:
             # Unless value and valid signature for _redirect_to=
             redirect_to = datasette.unsign(formdata["_redirect_to"], "redirect_to")
-        except itsdangerous.BadSignature:
+        except (itsdangerous.BadSignature, KeyError):
             pass
         return Response.redirect(redirect_to)
     else:
