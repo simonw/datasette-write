@@ -1,4 +1,5 @@
 from bs4 import BeautifulSoup as Soup
+import datasette
 from datasette.app import Datasette
 from datasette_write import parse_create_alter_drop_sql
 import pytest
@@ -251,6 +252,11 @@ async def test_title(ds, scenario):
 
 
 @pytest.mark.asyncio
+# Skip if Datasette < ('1', '0a15')
+@pytest.mark.skipif(
+    datasette.__version_info__ < ("1", "0"),
+    reason="Datasette < 1.0 does not support this hook",
+)
 @pytest.mark.parametrize(
     "path,expected",
     [
