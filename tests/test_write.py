@@ -3,6 +3,7 @@ from datasette.app import Datasette
 from datasette_write import parse_create_alter_drop_sql
 import pytest
 import sqlite3
+import textwrap
 import urllib
 
 
@@ -18,7 +19,18 @@ def ds(tmp_path_factory):
         insert into one (id, count) values (2, 20);
     """
     )
-    sqlite3.connect(db_path2).execute("vacuum")
+    sqlite3.connect(db_path2).executescript(
+        """
+        create table simple_pk (id integer primary key, name text);
+        insert into simple_pk (id, name) values (1, 'one');
+        create table simple_pk_multiline (id integer primary key, name text);
+        insert into simple_pk_multiline (id, name) values (1, 'one' || char(10) || 'two');
+        create table compound_pk (id1 integer, id2 integer, name text, primary key (id1, id2));
+        insert into compound_pk (id1, id2, name) values (1, 2, 'one-two');
+        create table has_not_null (id integer primary key, name text not null);
+        insert into has_not_null (id, name) values (1, 'one');
+        """
+    )
     ds = Datasette([db_path, db_path2])
     return ds
 
@@ -236,3 +248,62 @@ async def test_title(ds, scenario):
     else:
         assert "<title>Write to test with SQL</title>" in response.text
         assert "<summary>SQL query</summary>" not in response.text
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "path,expected",
+    [
+        (
+            "/test2/simple_pk/1",
+            textwrap.dedent(
+                """
+                    update "simple_pk" set
+                      "name" = nullif(:name, '')
+                    where "id" = :id_hidden
+                """
+            ).strip(),
+        ),
+        (
+            "/test2/simple_pk_multiline/1",
+            textwrap.dedent(
+                """
+                    update "simple_pk_multiline" set
+                      "name" = nullif(:name_textarea, '')
+                    where "id" = :id_hidden
+                """
+            ).strip(),
+        ),
+        (
+            "/test2/compound_pk/1,2",
+            textwrap.dedent(
+                """
+                    update "compound_pk" set
+                      "name" = nullif(:name, '')
+                    where "id1" = :id1_hidden and "id2" = :id2_hidden
+                """
+            ).strip(),
+        ),
+        (
+            "/test2/has_not_null/1",
+            textwrap.dedent(
+                """
+                    update "has_not_null" set
+                      "name" = :name
+                    where "id" = :id_hidden
+                """
+            ).strip(),
+        ),
+    ],
+)
+async def test_row_actions(ds, path, expected):
+    cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
+    response = await ds.client.get(
+        path,
+        cookies=cookies,
+    )
+    href = Soup(response.text, "html.parser").select(".dropdown-menu a")[0]["href"]
+    qs = href.split("?")[-1]
+    bits = dict(urllib.parse.parse_qsl(qs))
+    actual = bits["sql"]
+    assert actual == expected
