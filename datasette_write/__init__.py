@@ -214,8 +214,11 @@ def row_actions(datasette, actor, database, table, row, request):
                 "database": database,
             }
             for column in columns:
-                field_name = column["name"]
-                current_value = str(row_dict.get(field_name) or "")
+                column_name = column["name"]
+                field_name = column_name
+                if column_name in ("sql", "_redirect_to", "_title"):
+                    field_name = "_{}".format(column_name)
+                current_value = str(row_dict.get(column_name) or "")
                 if "\n" in current_value:
                     field_name = field_name + "_textarea"
                 if column["notnull"]:

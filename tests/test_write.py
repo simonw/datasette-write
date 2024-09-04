@@ -27,8 +27,8 @@ def ds(tmp_path_factory):
         insert into simple_pk_multiline (id, name) values (1, 'one' || char(10) || 'two');
         create table compound_pk (id1 integer, id2 integer, name text, primary key (id1, id2));
         insert into compound_pk (id1, id2, name) values (1, 2, 'one-two');
-        create table has_not_null (id integer primary key, name text not null);
-        insert into has_not_null (id, name) values (1, 'one');
+        create table has_not_null (id integer primary key, sql text not null);
+        insert into has_not_null (id, sql) values (1, 'one');
         """
     )
     ds = Datasette([db_path, db_path2])
@@ -289,7 +289,7 @@ async def test_title(ds, scenario):
             textwrap.dedent(
                 """
                     update "has_not_null" set
-                      "name" = :name
+                      "sql" = :_sql
                     where "id" = :id_hidden
                 """
             ).strip(),
