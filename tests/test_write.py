@@ -213,3 +213,26 @@ async def test_redirect_to(ds, valid):
     assert response2.status_code == 302
     actual_redirect_to = response2.headers["location"]
     assert actual_redirect_to == "/" if valid else "/test/-/write"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("scenario", ("valid", "invalid", "none"))
+async def test_title(ds, scenario):
+    cookies = {"ds_actor": ds.sign({"a": {"id": "root"}}, "actor")}
+    signed_title = ds.sign("Custom Title", "query_title")
+    params = {}
+    if scenario != "none":
+        params["_title"] = signed_title + ("" if scenario == "valid" else "invalid")
+    response = await ds.client.get(
+        "/test/-/write",
+        params=params,
+        cookies=cookies,
+    )
+    assert response.status_code == 200
+    if scenario == "valid":
+        assert "<title>Custom Title</title>" in response.text
+        # <details><summary only if custom title is set
+        assert "<summary>SQL query</summary>" in response.text
+    else:
+        assert "<title>Write to test with SQL</title>" in response.text
+        assert "<summary>SQL query</summary>" not in response.text

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Write with SQL{% endblock %}
+{% block title %}{% if custom_title %}{{ custom_title }}{% else %}Write to {{ database_name }} with SQL{% endif %}{% endblock %}
 
 {% block extra_head %}
 <style>
