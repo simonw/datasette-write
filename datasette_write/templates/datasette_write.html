@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Write with SQL{% endblock %}
+{% block title %}{% if custom_title %}{{ custom_title }}{% else %}Write to {{ database_name }} with SQL{% endif %}{% endblock %}
 
 {% block extra_head %}
 <style>
@@ -25,7 +25,7 @@
     box-sizing: border-box;
 }
 #query-parameters-area textarea {
-    height: 8em;
+    height: 20em;
 }
 .submit-container {
     padding-top: 1em;
@@ -41,24 +41,29 @@
 {% endblock %}
 
 {% block content %}
-<h1>Write to {{ database_name }} with SQL</h1>
+<h1>{% if custom_title %}{{ custom_title }}{% else %}Write to {{ database_name }} with SQL{% endif %}</h1>
 
 <form class="write-form core" action="{{ request.path }}" method="post" style="margin-bottom: 1em">
     <input type="hidden" name="csrftoken" value="{{ csrftoken() }}">
-    <p><textarea name="sql" style="box-sizing: border-box; width: 100%; padding-right: 10px; max-width: 600px; height: 10em; padding: 6px;">{{ sql_from_args }}</textarea></p>
+    {% if custom_title %}<details style="margin-bottom: 1em"><summary>SQL query</summary>{% endif %}
+        <p><textarea name="sql" style="box-sizing: border-box; width: 100%; padding-right: 10px; max-width: 600px; height: {{ sql_textarea_height }}em; padding: 6px;">{{ sql_from_args }}</textarea></p>
+    {% if custom_title %}</details>{% endif %}
     <div class="query-parameters">
         <div id="query-parameters-area">
             {% for parameter in parameters %}
                 <label for="qp_{{ parameter.name }}">{{ parameter.label }}</label>
                 {% if parameter.type == "text" %}
-                    <input type="text" id="qp_{{ parameter.name }}" name="qp_{{ parameter.name }}" value="">
+                    <input type="text" id="qp_{{ parameter.name }}" name="qp_{{ parameter.name }}" value="{{ parameter.value }}">
+                {% elif parameter.type == "hidden" %}
+                    <input type="text" disabled id="qp_{{ parameter.name }}" name="qp_{{ parameter.name }}" value="{{ parameter.value }}">
                 {% elif parameter.type == "textarea" %}
-                    <textarea id="qp_{{ parameter.name }}" name="qp_{{ parameter.name }}"></textarea>
+                    <textarea id="qp_{{ parameter.name }}" name="qp_{{ parameter.name }}">{{ parameter.value }}</textarea>
                 {% endif %}
             {% endfor %}
         </div>
     </div>
     <div class="submit-container">
+        <input type="hidden" name="_redirect_to" value="{{ redirect_to }}">
         <input type="submit" value="Execute query">
     </div>
 </form>
@@ -82,14 +87,40 @@
 <script>
 function buildQueryParametersHtml(parameters) {
     let htmlString = '';
+    var qsParams = new URLSearchParams(location.search);
     parameters.forEach(param => {
+        const value = escapeHtml(qsParams.get(param.name) || '');
         if (param.type === 'text') {
-            htmlString += `<label for="qp_${param.name}">${param.label}</label> <input type="text" id="qp_${param.name}" name="qp_${param.name}" value="">\n`;
+            htmlString += `
+              <label for="qp_${param.name}">${param.label}</label>
+              <input type="text" id="qp_${param.name}" name="qp_${param.name}" value="${value}">
+            `;
         } else if (param.type === 'textarea') {
-            htmlString += `<label for="qp_${param.name}">${param.label}</label> <textarea id="qp_${param.name}" name="qp_${param.name}"></textarea>\n`;
+            htmlString += `
+              <label for="qp_${param.name}">${param.label}</label>
+              <textarea id="qp_${param.name}" name="qp_${param.name}">${value}</textarea>
+            `;
+        } else if (param.type === 'hidden') {
+            htmlString += `
+              <span></span>
+              <input type="hidden" id="qp_${param.name}" name="qp_${param.name}" value="${value}">
+            `;
         }
     });
     return htmlString;
+}
+
+function escapeHtml(str) {
+    return str.replace(/[&<>"']/g, function(match) {
+        switch (match) {
+            case '&': return '&amp;';
+            case '<': return '&lt;';
+            case '>': return '&gt;';
+            case '"': return '&quot;';
+            case "'": return '&#39;';
+            default: return match;
+        }
+    });
 }
 
 const sqlTextArea = document.querySelector('textarea[name="sql"]');

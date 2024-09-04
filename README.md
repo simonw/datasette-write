@@ -15,13 +15,13 @@ pip install datasette-write
 ```
 ## Usage
 
-Having installed the plugin, visit `/-/write` on your Datasette instance to submit SQL queries that will be executed against a write connection to the specified database.
+Having installed the plugin, visit `/db/-/write` on your Datasette instance to submit SQL queries that will be executed against a write connection to the specified database.
 
 By default only the `root` user can access the page - so you'll need to run Datasette with the `--root` option and click on the link shown in the terminal to sign in and access the page.
 
 The `datasette-write` permission governs access. You can use permission plugins such as [datasette-permissions-sql](https://github.com/simonw/datasette-permissions-sql) to grant additional access to the write interface.
 
-Pass `?sql=...` in the query string to pre-populate the SQL editor with a query. Pass `?database=...` to specify a database to run the query against.
+Pass `?sql=...` in the query string to pre-populate the SQL editor with a query.
 
 ## Parameterized queries
 
@@ -30,9 +30,15 @@ SQL queries can include parameters like this:
 insert into news (title, body)
     values (:title, :body_textarea)
 ```
-These will be converted into form fields on the `/-/write` page.
+These will be converted into form fields on the `/db/-/write` page.
 
 If a parameter name ends with `_textarea` it will be rendered as a multi-line textarea instead of a text input.
+
+If a parameter name ends with `_hidden` it will be rendered as a hidden input.
+
+## Updating rows with SQL
+
+On Datasette 1.0a13 and higher a row actions menu item will be added to the row page linking to a SQL query for updating that row, for users with the `datasette-write` permission.
 
 ## Development
 

@@ -34,5 +34,5 @@ setup(
     },
     entry_points={"datasette": ["write = datasette_write"]},
     install_requires=["datasette>=0.64.6"],
-    extras_require={"test": ["pytest", "pytest-asyncio", "httpx"]},
+    extras_require={"test": ["pytest", "pytest-asyncio", "httpx", "beautifulsoup4"]},
 )
