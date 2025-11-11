@@ -1,16 +1,30 @@
 from datasette import hookimpl, Forbidden, Response
+from datasette.permissions import Action
+from datasette.resources import DatabaseResource
 from datasette.utils import derive_named_parameters
 import itsdangerous
 from urllib.parse import urlencode
 import re
 
+WRITE_ACTION = "datasette-write"
+
+
+async def _allowed_for_database(datasette, actor, database_name):
+    return await datasette.allowed(
+        action=WRITE_ACTION,
+        actor=actor,
+        resource=DatabaseResource(database_name),
+    )
+
+
+async def _require_write_permission(datasette, actor, database_name):
+    if not await _allowed_for_database(datasette, actor, database_name):
+        raise Forbidden(f"Permission denied for {WRITE_ACTION}")
+
 
 async def write(request, datasette):
-    if not await datasette.permission_allowed(
-        request.actor, "datasette-write", default=False
-    ):
-        raise Forbidden("Permission denied for datasette-write")
     database_name = request.url_vars["database"]
+    await _require_write_permission(datasette, request.actor, database_name)
     if request.method == "GET":
         database = datasette.get_database(database_name)
         tables = await database.table_names()
@@ -100,14 +114,10 @@ async def write(request, datasette):
 
 
 async def write_redirect(request, datasette):
-    if not await datasette.permission_allowed(
-        request.actor, "datasette-write", default=False
-    ):
-        raise Forbidden("Permission denied for datasette-write")
-
     db = request.args.get("database") or ""
     if not db:
         db = datasette.get_database().name
+    await _require_write_permission(datasette, request.actor, db)
 
     # Preserve query string, except the database=
     pairs = [
@@ -145,14 +155,11 @@ async def derive_parameters(db, sql):
 
 
 async def write_derive_parameters(datasette, request):
-    if not await datasette.permission_allowed(
-        request.actor, "datasette-write", default=False
-    ):
-        raise Forbidden("Permission denied for datasette-write")
     try:
         db = datasette.get_database(request.args.get("database"))
     except KeyError:
         db = datasette.get_database()
+    await _require_write_permission(datasette, request.actor, db.name)
     parameters = await derive_parameters(db, request.args.get("sql") or "")
     return Response.json({"parameters": parameters})
 
@@ -167,17 +174,9 @@ def register_routes():
 
 
 @hookimpl
-def permission_allowed(actor, action):
-    if action == "datasette-write" and actor and actor.get("id") == "root":
-        return True
-
-
-@hookimpl
 def database_actions(datasette, actor, database):
     async def inner():
-        if database != "_internal" and await datasette.permission_allowed(
-            actor, "datasette-write", default=False
-        ):
+        if await _allowed_for_database(datasette, actor, database):
             return [
                 {
                     "href": datasette.urls.database(database) + "/-/write",
@@ -192,9 +191,7 @@ def database_actions(datasette, actor, database):
 @hookimpl
 def row_actions(datasette, actor, database, table, row, request):
     async def inner():
-        if database != "_internal" and await datasette.permission_allowed(
-            actor, "datasette-write", default=False
-        ):
+        if await _allowed_for_database(datasette, actor, database):
             db = datasette.get_database(database)
             pks = []
             columns = []
@@ -256,6 +253,17 @@ def row_actions(datasette, actor, database, table, row, request):
             ]
 
     return inner
+
+
+@hookimpl
+def register_actions(datasette):
+    return [
+        Action(
+            name=WRITE_ACTION,
+            description="Execute SQL write queries against a database",
+            resource_class=DatabaseResource,
+        ),
+    ]
 
 
 _name_patterns = (

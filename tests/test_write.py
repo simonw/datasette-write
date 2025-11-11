@@ -33,6 +33,7 @@ def ds(tmp_path_factory):
         """
     )
     ds = Datasette([db_path, db_path2])
+    ds.root_enabled = True
     return ds
 
 
